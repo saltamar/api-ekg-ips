@@ -4,10 +4,8 @@ import cv2
 import numpy as np
 from scipy.signal import find_peaks
 
-# Inicializamos el servidor
 app = FastAPI(title="API Edge-EKG IPS")
 
-# Permitimos que tu app de FlutterFlow se conecte sin bloqueos de seguridad
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,7 +22,6 @@ async def analizar_electro(
     foto: UploadFile = File(...)
 ):
     try:
-        # 1. Leer la imagen enviada desde el celular
         contenido = await foto.read()
         nparr = np.frombuffer(contenido, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
@@ -32,13 +29,11 @@ async def analizar_electro(
         if img is None:
             return {"estado": "error", "mensaje": "La imagen no se pudo leer."}
 
-        # 2. Visión Adaptativa (Limpieza de ruido)
         desenfoque = cv2.GaussianBlur(img, (5, 5), 0)
         mascara = cv2.adaptiveThreshold(desenfoque, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 21, 10)
         kernel = np.ones((3,3), np.uint8)
         senal_limpia = cv2.dilate(mascara, kernel, iterations=1)
 
-        # 3. Matemática
         altura = senal_limpia.shape[0]
         ancho = senal_limpia.shape[1]
         pixeles_seg = ancho / duracion_trazado
@@ -60,13 +55,13 @@ async def analizar_electro(
         if len(picos) < 2:
             return {"estado": "error", "mensaje": "Señal insuficiente. Recorta una línea horizontal clara."}
 
-        # 4. Cálculos Clínicos
+        # ¡AQUÍ ESTÁ LA CORRECCIÓN DE TRADUCCIÓN!
         rr_segs = np.diff(picos) / pixeles_seg
-        fc = round(60 / np.mean(rr_segs))
-        cv_porcentaje = (np.std(rr_segs) / np.mean(rr_segs)) * 100
-        es_regular = cv_porcentaje < 12.0
+        fc = int(round(60 / np.mean(rr_segs))) # Convertido a entero normal
+        cv_porcentaje = float((np.std(rr_segs) / np.mean(rr_segs)) * 100) # Convertido a float normal
+        es_regular = bool(cv_porcentaje < 12.0) # Convertido a booleano normal
+        cantidad_latidos = int(len(picos)) # Convertido a entero normal
 
-        # 5. Árbol de Decisión
         alerta = "VERDE"
         diagnostico = "Ritmo Sinusal Normal"
 
@@ -86,14 +81,13 @@ async def analizar_electro(
             alerta = "AMARILLA"
             diagnostico = "Bradicardia."
 
-        # 6. Devolver el JSON (El sobre de respuesta para FlutterFlow)
         return {
             "estado": "exito",
             "datos_paciente": {"edad": edad, "sexo": sexo, "sintoma": sintoma},
             "resultados_ia": {
                 "frecuencia_cardiaca_lpm": fc,
                 "ritmo_regular": es_regular,
-                "latidos_detectados": len(picos)
+                "latidos_detectados": cantidad_latidos
             },
             "triaje": {
                 "nivel_alerta": alerta,
